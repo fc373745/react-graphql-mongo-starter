@@ -9,12 +9,36 @@ const Event = require("./models/event");
 const User = require("./models/user");
 
 const app = express();
-events = [];
+
 app.use(bodyParser.json());
+
+const events = eventIds => {
+    return Event.find({_id: {$in: eventIds}}).then(
+        events=>{
+            return events.map(event=> {
+                return { ...event._doc, _id: event.id, creator: user.bind(this, event.creator)}
+            })
+        }
+    ).catch(err=>{throw err})
+}
 
 app.get("/", (req, res, next) => {
     res.send("hello");
 });
+
+
+const user = userID => {
+    return User.findById(userID).then().catch(err =>{
+        then(user => {
+            return {
+                ...user._doc, _id: user.id, creator: user.bind(this, event._doc.creator)
+            }
+        })
+        .tach(err => {
+            throw err
+        })
+    })
+}
 
 app.use(
     "/graphql",
@@ -26,12 +50,14 @@ app.use(
             description: String!
             price: Float!
             date: String!
+            creator: User!
         }
 
         type User {
             _id: ID!
             email: String!
             password: String
+            createdEvents: [Event!]
         }
 
         input EventInput {
@@ -62,11 +88,15 @@ app.use(
     `),
         rootValue: {
             events: () => {
-                return Event.find()
+                return Event.find().populate('creator')
                     .then(events => {
                         return events.map(event => ({
                             ...event._doc,
-                            _id: event._id.toString()
+                            _id: event._id,
+                            creator: {
+                                ...event._doc.creator._doc, 
+                                _id: event._doc.creator.id
+                            }
                         }));
                     })
                     .catch(err => console.log(err));
@@ -77,7 +107,7 @@ app.use(
                     description: args.eventInput.description,
                     price: +args.eventInput.price,
                     date: new Date(args.eventInput.date),
-                    creator: "5c23b0c6f173cd24870c17b2"
+                    creator: "5c23d8189f1a7e3d180cca7a"
                 });
                 let createdEvent;
                 return event
@@ -87,7 +117,7 @@ app.use(
                             ...res._doc,
                             _id: res._doc._id.toString()
                         };
-                        return User.findById("5c23b0c6f173cd24870c17b2");
+                        return User.findById("5c23d8189f1a7e3d180cca7a");
                     })
                     .then(user => {
                         if (!user) {
@@ -99,7 +129,9 @@ app.use(
                     .then(() => {
                         return createdEvent;
                     })
-                    .catch(err => console.log(err));
+                    .catch(err =>{
+                        throw err
+                    } );
             },
             createUser: args => {
                 return User.findOne({ email: args.userInput.email })
